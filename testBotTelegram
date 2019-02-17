@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Main Setup
+TELE=~/telegram/telegram
+TELE_TOKEN=799058967:AAHdBKLP8cjxLXUCxeBiWmEOoY8kZHvbiQo
+TELE_ID=671339354
+
+# Main Telegram
+#function sendInfo() {
+# $TELE -t $TELE_TOKEN -c $TELE_ID "${1}"
+#}
+
+function sendInfo() {
+	"${TELE}" -t ${TELE_TOKEN} -c ${TELE_ID} -H \
+		"$(
+			for POST in "${@}"; do
+				echo "${POST}"
+			done
+		)"
+}
+
+function sendFile() {
+	$TELE -t $TELE_TOKEN -c $TELE_ID -f $ZIP_DIR/aLN*.zip
+}
+
+sendInfo "--aLN Kernel New Build--" \
+		"Started at " \
+		"Started on $(hostname)" \
+		"Branch : " \
+		"Commit : " \
+		"Build Started!!!"
+
