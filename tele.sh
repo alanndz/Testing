@@ -29,7 +29,7 @@ function send() {
 function sendFile() {
 	$TELE -t $TELE_TOKEN -c $TELE_ID -f $ZIP_DIR/aLN*.zip
 }
-
+#
 #sendInfo "--aLN Kernel New Build--" \
 #		"Started at " \
 #		"Started on $(hostname)" \
