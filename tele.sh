@@ -10,7 +10,7 @@ TELE_ID=671339354
 #}
 
 function sendInfo() {
-	"${TELE}" -t ${TELE_TOKEN} -c ${TELE_ID} -H \
+	$TELE -t ${TELE_TOKEN} -c ${TELE_ID} -H \
 		"$(
 			for POST in "${@}"; do
 				echo "${POST}"
@@ -30,11 +30,11 @@ function sendFile() {
 	$TELE -t $TELE_TOKEN -c $TELE_ID -f $ZIP_DIR/aLN*.zip
 }
 
-#sendInfo "--aLN Kernel New Build--" \
-#		"Started at " \
-#		"Started on $(hostname)" \
-#		"Branch : " \
-#		"Commit : " \
-#		"Build Started!!!"
+sendInfo "--aLN Kernel New Build--" \
+		"Started at " \
+		"Started on $(hostname)" \
+		"Branch : " \
+		"Commit : " \
+		"Build Started!!!"
 
-send "$(echo -e "<b>--aLN Kernel New Build--</b>\n*Started at *\nStarted on `$(hostname)`\nBranch : \nCommit : \nBuild")"
+# send "$(echo -e "<b>--aLN Kernel New Build--</b>\n*Started at *\nStarted on $(hostname)\nBranch : \nCommit : \nBuild")"
