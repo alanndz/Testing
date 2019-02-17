@@ -20,7 +20,7 @@ function sendInfo() {
 
 function send() {
 	curl -s "https://api.telegram.org/bot$TELE_TOKEN/sendMessage" \
-		-d "parse_mode=markdown" \
+		-d "parse_mode=HTML" \
 		-d text="${1}" \
 		-d chat_id="$TELE_ID" \
 		-d "disable_web_page_preview=true"
@@ -30,11 +30,11 @@ function sendFile() {
 	$TELE -t $TELE_TOKEN -c $TELE_ID -f $ZIP_DIR/aLN*.zip
 }
 
-sendInfo "--aLN Kernel New Build--" \
+# sendInfo "--aLN Kernel New Build--" \
 		"Started at " \
 		"Started on $(hostname)" \
 		"Branch : " \
 		"Commit : " \
 		"Build Started!!!"
 
-# send "$(echo -e "<b>--aLN Kernel New Build--</b>\n*Started at *\nStarted on $(hostname)\nBranch : \nCommit : \nBuild")"
+send "$(echo -e "<b>--aLN Kernel New Build--</b>\n*Started at *\nStarted on<code> $(hostname) </code>\nBranch : \nCommit : \nBuild")"
