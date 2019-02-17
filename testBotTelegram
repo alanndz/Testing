@@ -37,4 +37,4 @@ function sendFile() {
 #		"Commit : " \
 #		"Build Started!!!"
 
-send "$(echo -e "--aLN Kernel New Build--\nStarted at \nStarted on $(hostname)\nBranch : \nCommit : \nBuild")"
+send "$(echo -e "<b>--aLN Kernel New Build--</b>\n**Started at **\nStarted on $(hostname)\nBranch : \nCommit : \nBuild")"
