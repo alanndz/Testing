@@ -29,11 +29,12 @@ function send() {
 function sendFile() {
 	$TELE -t $TELE_TOKEN -c $TELE_ID -f $ZIP_DIR/aLN*.zip
 }
-# send "--aLN Kernel New Build--" \
+
+#send "--aLN Kernel New Build--" \
 		"Started at " \
 		"Started on<code> $(hostname) </code>" \
 		"Branch : " \
 		"Commit : " \
 		"Build Started!!!"
 
-send "$(echo -e "--aLN Kernel New Build--\n*Started at *\nStarted on<code> $((hostname)) </code>\nBranch : \nCommit : \nBuild")"
+send "$(echo -e "<b>--aLN Kernel New Build--</b>\n*Started at *\nStarted on<code> $((hostname)) </code>\nBranch : \nCommit : \nBuild")"
