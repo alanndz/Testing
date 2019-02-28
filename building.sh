@@ -17,10 +17,12 @@ export KBUILD_BUILD_HOST="n00b"
 export ARM64GCC="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
 # export ARM64GCC="$HOME/gcc/bin/aarch64-opt-linux-android-"
 export CLANG_TCHAIN="${TOOLDIR}/Clang/bin/clang"
-export CLANG_LD_PATH="${CLANG_TCHAIN}/lib64"
+export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
+export LLVM_DIS="${TOOLDIR}/Clang/bin/llvm-dis"
+KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wno-vectorizer-no-neon -Wno-pointer-sign -Wno-sometimes-uninitialized -Wno-tautological-constant-out-of-range-compare -Wno-literal-conversion -Wno-enum-conversion -Wno-parentheses-equality -Wno-typedef-redefinition -Wno-constant-logical-operand -Wno-array-bounds -Wno-empty-body -Wno-non-literal-null-conversion -Wno-shift-overflow -Wno-logical-not-parentheses -Wno-strlcpy-strlcat-size -Wno-section -Wno-stringop-truncation -mtune=cortex-a53 -march=armv8-a+crc+simd+crypto -mcpu=cortex-a53 -O2"
 
 export OUTDIR="${KERNELDIR}/../Output"
-export builddir="${KERNELDIR}/../Builds"
+# export builddir="${KERNELDIR}/../Builds"
 
 # export DTBTOOL="${KERNELDIR}/Dtbtool"
 export ANY_KERNEL2_DIR="${TOOLDIR}/AnyKernel2"
@@ -28,7 +30,7 @@ export ZIP_NAME="${KERNEL_NAME}-${KERNEL_VERSION}-Clang_$(git rev-parse --abbrev
 export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb";
 
 export BOT_API_KEY=799058967:AAHdBKLP8cjxLXUCxeBiWmEOoY8kZHvbiQo
-export CHAT_ID=@aLnKernel
+export CHAT_ID=@671339354
 
 CLANG_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 JOBS="-j$(($(nproc --all) + 1))"
@@ -36,6 +38,11 @@ cd $KERNELDIR
 
 make_a_fucking_defconfig() {
 	make O=${OUTDIR} $CONFIG_FILE
+}
+
+clean_outdir() {
+    make O=${OUTDIR} clean
+    make mrproper
 }
 
 compile() {
@@ -47,6 +54,23 @@ compile() {
 		HOSTCC="${CLANG_TCHAIN}" \
 		KBUILD_COMPILER_STRING="${CLANG_VERSION}" \
 		"${JOBS}"
+}
+
+compilee() {
+	LD_LIBRARY_PATH="$CLANG_LD_PATH:$LD_LIBARY_PATH" \
+	make "${JOBS}" ARCH=$ARCH \
+			CROSS_COMPILE="${ARM64GCC}" \
+			CC="ccache ${CLANG_TCHAIN}" \
+			KBUILD_COMPILER_STRING="${CLANG_VERSION}" \
+			LLVM_DIS="$LLVM_DIS" \
+			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" \
+			KCFLAGS="-mllvm -polly \
+					-mllvm -polly-run-dce \
+					-mllvm -polly-run-inliner \
+					-mllvm -polly-opt-fusion=max \
+					-mllvm -polly-ast-use-context \
+					-mllvm -polly-vectorizer=stripmine \
+					-mllvm -polly-detect-keep-going"
 }
 
 zipit () {
@@ -74,7 +98,9 @@ curl -s -X POST https://api.telegram.org/bot$BOT_API_KEY/sendMessage -d text="Do
 # curl -F chat_id="$CHAT_ID" -F document=@"$PWD/$ZIP_NAME" https://api.telegram.org/bot$BOT_API_KEY/sendDocument
 }
 
+clean_outdir
 make_a_fucking_defconfig
-compile
+#compile
+compilee
 deploy
 zipit
