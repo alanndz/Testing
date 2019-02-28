@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+
+# Source Code from https://gist.github.com/VRanger/dd2da6956fe1acd9d52d8c4d4dfc48e9
+# Credit to VRanger
+# modified by alanndz @ github
+
+export KERNELDIR=$PWD
+export TOOLDIR=$KERNELDIR/../ToolDragon9
+export CONFIG_FILE="vince_defconfig"
+export ARCH=arm64
+export SUBARCH=arm64
+
+export KERNEL_NAME="aLn"
+export KERNEL_VERSION="vA2"
+
+export KBUILD_BUILD_USER="alanndz"
+export KBUILD_BUILD_HOST="n00b"
+
+export ZIP_DIR="${TOOLDIR}/AnyKernel2"
+export ZIP_NAME="${KERNEL_NAME}-${KERNEL_VERSION}-Clang_$(git rev-parse --abbrev-ref HEAD).zip"
+export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb";
+
+# Download TOOL
+if [ ! -d "${TOOLDIR}/Clang" ]; then
+  # mkdir $TOOL_DIR/Clang
+  git clone https://github.com/nibaji/DragonTC-9.0 --depth=1 ${TOOLDIR}/Clang
+fi
+if [ ! -d "${TOOLDIR}/linaro8" ]; then
+  # mkdir $TOOL_DIR/linaro8
+  git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
+fi
+if [ ! -d "${ZIP_DIR}" ]; then
+#  mkdir $ZIP_DIR
+  git clone  https://github.com/alanndz/AnyKernel2 -b gcclang ${ZIP_DIR}
+fi
+
+export ARM64GCC="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
+# export ARM64GCC="$HOME/gcc/bin/aarch64-opt-linux-android-"
+export CLANG_TCHAIN="${TOOLDIR}/Clang/bin/clang"
+export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
+export LLVM_DIS="${TOOLDIR}/Clang/bin/llvm-dis"
+KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wno-vectorizer-no-neon -Wno-pointer-sign -Wno-sometimes-uninitialized -Wno-tautological-constant-out-of-range-compare -Wno-literal-conversion -Wno-enum-conversion -Wno-parentheses-equality -Wno-typedef-redefinition -Wno-constant-logical-operand -Wno-array-bounds -Wno-empty-body -Wno-non-literal-null-conversion -Wno-shift-overflow -Wno-logical-not-parentheses -Wno-strlcpy-strlcat-size -Wno-section -Wno-stringop-truncation -mtune=cortex-a53 -march=armv8-a+crc+simd+crypto -mcpu=cortex-a53 -O2"
+
+export OUTDIR="${KERNELDIR}/../Output"
+
+export BOT_API_KEY=799058967:AAHdBKLP8cjxLXUCxeBiWmEOoY8kZHvbiQo
+export CHAT_ID=671339354
+
+CLANG_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+JOBS="-j$(($(nproc --all) + 1))"
+# cd $KERNELDIR
+
+function sendInfo() {
+    curl -s -X POST https://api.telegram.org/bot$BOT_API_KEY/sendMessage -d text="${1}" -d chat_id=$CHAT_ID -d "parse_mode=HTML"
+}
+
+generate_config() {
+	make O=${OUTDIR} $CONFIG_FILE
+}
+
+clean_outdir() {
+    make O=${OUTDIR} clean
+    make mrproper
+}
+
+compile() {
+	LD_LIBRARY_PATH="${CLANG_LD_PATH}:${LD_LIBARY_PATH}"  \ 
+        make "${JOBS}" O="${OUTDIR}" LOCALVERSION="-Clang-${KERNEL_VERSION}"
+		CC="ccache ${CLANG_TCHAIN}" \
+		CROSS_COMPILE="${ARM64GCC}" \
+		HOSTCC="${CLANG_TCHAIN}" \
+		KBUILD_COMPILER_STRING="${CLANG_VERSION}" 
+}
+
+compile_clang() {
+	LD_LIBRARY_PATH="$CLANG_LD_PATH:$LD_LIBARY_PATH" \
+	make "${JOBS}" O="${OUTDIR}" ARCH=$ARCH LOCALVERSION="-Clang-${KERNEL_VERSION}" \
+			CROSS_COMPILE="${ARM64GCC}" \
+			CC="ccache ${CLANG_TCHAIN}" \
+			KBUILD_COMPILER_STRING="${CLANG_VERSION}" \
+			LLVM_DIS="$LLVM_DIS" \
+			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" \
+			KCFLAGS="-mllvm -polly \
+					-mllvm -polly-run-dce \
+					-mllvm -polly-run-inliner \
+					-mllvm -polly-opt-fusion=max \
+					-mllvm -polly-ast-use-context \
+					-mllvm -polly-vectorizer=stripmine \
+					-mllvm -polly-detect-keep-going"
+}
+
+compile_gcc() {
+    make "${JOBS}" O=${OUTDIR} ARCH=$ARCH LOCALVERSION="-${KERNEL_VERSION}" \
+			CROSS_COMPILE="${ARM64GCC}" \
+			CC='ccache '${ARM64GCC}gcc \
+			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" 
+}
+
+make_zip () {
+	    if ! [ -a "${IMAGE}" ]; then
+        	echo -e "Build failed :P";
+            sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")";
+	        sendInfo "$(echo -e "Kernel compilation failed")";
+        	exit 1;
+        fi
+    	echo "**** Copying zImage ****"
+    	cd ${ZIP_DIR}/
+        make clean &>/dev/null
+        cp ${IMAGE} ${ZIP_DIR}/zImage
+        make NAME=${KERNEL_NAME} CODE=${KERNEL_VERSION} normal &>/dev/null
+        make NAME=${KERNEL_NAME} CODE=${KERNEL_VERSION} TELE_TOKEN=$BOT_API_KEY TELE_ID=$CHAT_ID sendtele
+}
+
+BUILD_START=$(date +"%s")
+DATE=`date`
+
+sendInfo "$(echo -e "-- aLn New Kernel -- \nFor Device: <code>Vince</code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${KBUILD_COMPILER_STRING} </code> \nStarted at $DATE")"
+clean_outdir
+generate_config
+# compile
+# compile_clang
+compile_gcc
+
+BUILD_END=$(date +"%s")
+DIFF=$(($BUILD_END - $BUILD_START))
+make_zip
+sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")"
