@@ -11,14 +11,15 @@ export ARCH=arm64
 export SUBARCH=arm64
 
 export KERNEL_NAME="aLn"
-export KERNEL_VERSION="vA2"
+export KERNEL_VERSION="vA2-Testing"
 
 export KBUILD_BUILD_USER="alanndz"
 export KBUILD_BUILD_HOST="n00b"
 
 export ZIP_DIR="${TOOLDIR}/AnyKernel2"
-export ZIP_NAME="${KERNEL_NAME}-${KERNEL_VERSION}-Clang_$(git rev-parse --abbrev-ref HEAD).zip"
-export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb";
+export ZIP_NAME="${KERNEL_NAME}-${KERNEL_VERSION}-$(git rev-parse --abbrev-ref HEAD).zip"
+export OUTDIR="${KERNELDIR}/../Output"
+export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb"
 
 # Download TOOL
 if [ ! -d "${TOOLDIR}/Clang" ]; then
@@ -41,17 +42,20 @@ export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
 export LLVM_DIS="${TOOLDIR}/Clang/bin/llvm-dis"
 KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wno-vectorizer-no-neon -Wno-pointer-sign -Wno-sometimes-uninitialized -Wno-tautological-constant-out-of-range-compare -Wno-literal-conversion -Wno-enum-conversion -Wno-parentheses-equality -Wno-typedef-redefinition -Wno-constant-logical-operand -Wno-array-bounds -Wno-empty-body -Wno-non-literal-null-conversion -Wno-shift-overflow -Wno-logical-not-parentheses -Wno-strlcpy-strlcat-size -Wno-section -Wno-stringop-truncation -mtune=cortex-a53 -march=armv8-a+crc+simd+crypto -mcpu=cortex-a53 -O2"
 
-export OUTDIR="${KERNELDIR}/../Output"
-
 export BOT_API_KEY=799058967:AAHdBKLP8cjxLXUCxeBiWmEOoY8kZHvbiQo
-export CHAT_ID=671339354
+export CHAT_ID=-1001230204923
 
 CLANG_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+GCC_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 JOBS="-j$(($(nproc --all) + 1))"
 # cd $KERNELDIR
 
 function sendInfo() {
     curl -s -X POST https://api.telegram.org/bot$BOT_API_KEY/sendMessage -d text="${1}" -d chat_id=$CHAT_ID -d "parse_mode=HTML"
+}
+
+function sendZip() {
+	curl -F chat_id="$CHAT_ID" -F document=@"$ZIP_DIR/$ZIP_NAME" https://api.telegram.org/bot$BOT_API_KEY/sendDocument
 }
 
 generate_config() {
@@ -61,6 +65,7 @@ generate_config() {
 clean_outdir() {
     make O=${OUTDIR} clean
     make mrproper
+    rm -rf ${OUTDIR}/*
 }
 
 compile() {
@@ -97,31 +102,35 @@ compile_gcc() {
 }
 
 make_zip () {
-	    if ! [ -a "${IMAGE}" ]; then
+	cd ${ZIP_DIR}/
+	make clean &>/dev/null
+	if [ ! -f ${IMAGE} ]; then
         	echo -e "Build failed :P";
-            sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")";
+        	sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")";
 	        sendInfo "$(echo -e "Kernel compilation failed")";
         	exit 1;
         fi
     	echo "**** Copying zImage ****"
-    	cd ${ZIP_DIR}/
-        make clean &>/dev/null
+    	# cd ${ZIP_DIR}/
+        # make clean &>/dev/null
         cp ${IMAGE} ${ZIP_DIR}/zImage
-        make NAME=${KERNEL_NAME} CODE=${KERNEL_VERSION} normal &>/dev/null
-        make NAME=${KERNEL_NAME} CODE=${KERNEL_VERSION} TELE_TOKEN=$BOT_API_KEY TELE_ID=$CHAT_ID sendtele
+        make ZIP="${ZIP_NAME}" normal &>/dev/null
+#        make NAME=$KERNEL_NAME CODE=$KERNEL_VERSION TELE_TOKEN=$BOT_API_KEY TELE_ID=$CHAT_ID sendtele
 }
 
 BUILD_START=$(date +"%s")
 DATE=`date`
 
-sendInfo "$(echo -e "-- aLn New Kernel -- \nFor Device: <code>Vince</code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${KBUILD_COMPILER_STRING} </code> \nStarted at $DATE")"
+sendInfo "$(echo -e "-- aLn New Kernel -- \nFor Device: <code>Vince</code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${GCC_VERSION} </code> \nStarted at $DATE")"
 clean_outdir
 generate_config
-# compile
-# compile_clang
+#compile
+#compile_clang
+#rm -rf ${IMAGE}
 compile_gcc
 
 BUILD_END=$(date +"%s")
 DIFF=$(($BUILD_END - $BUILD_START))
 make_zip
+sendZip
 sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")"
