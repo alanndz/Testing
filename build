@@ -9,11 +9,11 @@ export CONFIG_FILE="vince_defconfig"
 # Build Release For
 # 0 Official/Final 
 # 1 Test build
-BREL=1
+export BREL=1
 # Compiler
 # 0 GCC 
 # 1 CLANG
-COMP=0
+export COMP=0
 
 export KERNELDIR=~/kernel/a*9
 cd ${KERNELDIR}/
@@ -50,16 +50,16 @@ KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wn
 export BOT_API_KEY=$(openssl enc -base64 -d <<< Nzk5MDU4OTY3OkFBRlpjVEM5SU9lVEt4YkJucHVtWG02VHlUOTFzMzU5Y3VVCg==)
 export CHAT_ID=$(openssl enc -base64 -d <<< LTEwMDEyMzAyMDQ5MjMK)
 
-if [ $BREL==0 ]; then
+if [ $BREL -eq 0 ]; then
 	export KVERSION="-${KERNEL_VERSION}"
 	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
-elif [ $BREL==1 ]; then
+elif [ $BREL -eq 1 ]; then
 	export KVERSION="-${KERNEL_VERSION}-Testing"
 	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
 fi
-if [ $COMP==0 ]; then
+if [ $COMP -eq 0 ]; then
 	COMP_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-elif [ $COMP==1 ]; then
+elif [ $COMP -eq 1 ]; then
 	COMP_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 fi
 
@@ -140,9 +140,9 @@ sendInfo "$(echo -e "-- aLn New Kernel -- \nVersion: <code>${KVERSION} </code> \
 clean_outdir
 generate_config
 #compile
-if [ $COMP==0 ]; then
+if [ $COMP -eq 0 ]; then
 	compile_gcc
-elif [ $COMP==1 ]; then
+elif [ $COMP -eq 1 ]; then
 	compile_clang
 fi
 
