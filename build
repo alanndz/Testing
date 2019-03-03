@@ -3,21 +3,26 @@
 # Source Code from https://gist.github.com/VRanger/dd2da6956fe1acd9d52d8c4d4dfc48e9
 # Credit to VRanger
 # modified by alanndz @ github
-
-export KERNELDIR=$PWD
-export TOOLDIR=$KERNELDIR/../ToolDragon9
+export KERNEL_NAME="aLn"
+export KERNEL_VERSION="vA2"
 export CONFIG_FILE="vince_defconfig"
+# Build Release For
+# 0 Official/Final 
+# 1 Test build
+BREL=1
+# Compiler
+# 0 GCC 
+# 1 CLANG
+COMP=0
+
+export KERNELDIR=~/kernel/a*9
+cd ${KERNELDIR}/
+export TOOLDIR=$KERNELDIR/../ToolDragon9
 export ARCH=arm64
 export SUBARCH=arm64
-
-export KERNEL_NAME="aLn"
-export KERNEL_VERSION="vA2-Testing"
-
 export KBUILD_BUILD_USER="alanndz"
 export KBUILD_BUILD_HOST="n00b"
-
 export ZIP_DIR="${TOOLDIR}/AnyKernel2"
-export ZIP_NAME="${KERNEL_NAME}-${KERNEL_VERSION}-$(git log --pretty=format:'%h' -1).zip"
 export OUTDIR="${KERNELDIR}/../Output"
 export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb"
 
@@ -42,11 +47,23 @@ export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
 export LLVM_DIS="${TOOLDIR}/Clang/bin/llvm-dis"
 KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wno-vectorizer-no-neon -Wno-pointer-sign -Wno-sometimes-uninitialized -Wno-tautological-constant-out-of-range-compare -Wno-literal-conversion -Wno-enum-conversion -Wno-parentheses-equality -Wno-typedef-redefinition -Wno-constant-logical-operand -Wno-array-bounds -Wno-empty-body -Wno-non-literal-null-conversion -Wno-shift-overflow -Wno-logical-not-parentheses -Wno-strlcpy-strlcat-size -Wno-section -Wno-stringop-truncation -mtune=cortex-a53 -march=armv8-a+crc+simd+crypto -mcpu=cortex-a53 -O3"
 
-export BOT_API_KEY=799058967:AAHdBKLP8cjxLXUCxeBiWmEOoY8kZHvbiQo
-export CHAT_ID=-1001230204923
+export BOT_API_KEY=$(openssl enc -base64 -d <<< Nzk5MDU4OTY3OkFBRlpjVEM5SU9lVEt4YkJucHVtWG02VHlUOTFzMzU5Y3VVCg==)
+export CHAT_ID=$(openssl enc -base64 -d <<< LTEwMDEyMzAyMDQ5MjMK)
 
-CLANG_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-GCC_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+if [ $BREL==0 ]; then
+	export KVERSION="-${KERNEL_VERSION}"
+	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
+	
+else
+	export KVERSION="-${KERNEL_VERSION}-Testing"
+	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
+fi
+if [ $COMP==0 ]; then
+	COMP_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+else
+	COMP_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+fi
+
 JOBS="-j$(($(nproc --all) + 1))"
 # cd $KERNELDIR
 
@@ -70,19 +87,19 @@ clean_outdir() {
 
 compile() {
 	LD_LIBRARY_PATH="${CLANG_LD_PATH}:${LD_LIBARY_PATH}"  \ 
-        make "${JOBS}" O="${OUTDIR}" LOCALVERSION="-Clang-${KERNEL_VERSION}"
+        make "${JOBS}" O="${OUTDIR}" LOCALVERSION="-${KVERSION}"
 		CC="ccache ${CLANG_TCHAIN}" \
 		CROSS_COMPILE="${ARM64GCC}" \
 		HOSTCC="${CLANG_TCHAIN}" \
-		KBUILD_COMPILER_STRING="${CLANG_VERSION}" 
+		KBUILD_COMPILER_STRING="${COMP_VERSION}" 
 }
 
 compile_clang() {
 	LD_LIBRARY_PATH="$CLANG_LD_PATH:$LD_LIBARY_PATH" \
-	make "${JOBS}" O="${OUTDIR}" ARCH=$ARCH LOCALVERSION="-Clang-${KERNEL_VERSION}" \
+	make "${JOBS}" O="${OUTDIR}" ARCH=$ARCH LOCALVERSION="-${KVERSION}" \
 			CROSS_COMPILE="${ARM64GCC}" \
 			CC="ccache ${CLANG_TCHAIN}" \
-			KBUILD_COMPILER_STRING="${CLANG_VERSION}" \
+			KBUILD_COMPILER_STRING="${COMP_VERSION}" \
 			LLVM_DIS="$LLVM_DIS" \
 			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" \
 			KCFLAGS="-mllvm -polly \
@@ -95,7 +112,7 @@ compile_clang() {
 }
 
 compile_gcc() {
-    make "${JOBS}" O=${OUTDIR} ARCH=$ARCH LOCALVERSION="-${KERNEL_VERSION}" \
+    make "${JOBS}" O=${OUTDIR} ARCH=$ARCH LOCALVERSION="-${KVERSION}" \
 			CROSS_COMPILE="${ARM64GCC}" \
 			CC='ccache '${ARM64GCC}gcc \
 			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" 
@@ -121,13 +138,15 @@ make_zip () {
 BUILD_START=$(date +"%s")
 DATE=`date`
 
-sendInfo "$(echo -e "-- aLn New Kernel -- \nFor Device: <code>Vince</code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${GCC_VERSION} </code> \nStarted at $DATE")"
+sendInfo "$(echo -e "-- aLn New Kernel -- \nVersion: <code>${KVERSION} </code> \nKernel Version: <code>$(make kernelversion) </code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${COMP_VERSION} </code> \nStarted at $DATE")"
 clean_outdir
 generate_config
 #compile
-#compile_clang
-#rm -rf ${IMAGE}
-compile_gcc
+if [ $COMP==0]; then
+	compile_gcc
+else
+	compile_clang
+fi
 
 BUILD_END=$(date +"%s")
 DIFF=$(($BUILD_END - $BUILD_START))
