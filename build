@@ -53,19 +53,17 @@ export CHAT_ID=$(openssl enc -base64 -d <<< LTEwMDEyMzAyMDQ5MjMK)
 if [ $BREL==0 ]; then
 	export KVERSION="-${KERNEL_VERSION}"
 	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
-	
-else
+elif [ $BREL==1 ]; then
 	export KVERSION="-${KERNEL_VERSION}-Testing"
 	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
 fi
 if [ $COMP==0 ]; then
 	COMP_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-else
+elif [ $COMP==1 ]; then
 	COMP_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 fi
 
 JOBS="-j$(($(nproc --all) + 1))"
-# cd $KERNELDIR
 
 function sendInfo() {
     curl -s -X POST https://api.telegram.org/bot$BOT_API_KEY/sendMessage -d text="${1}" -d chat_id=$CHAT_ID -d "parse_mode=HTML"
@@ -144,7 +142,7 @@ generate_config
 #compile
 if [ $COMP==0 ]; then
 	compile_gcc
-else
+elif [ $COMP==1 ]; then
 	compile_clang
 fi
 
