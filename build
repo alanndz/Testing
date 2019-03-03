@@ -142,7 +142,7 @@ sendInfo "$(echo -e "-- aLn New Kernel -- \nVersion: <code>${KVERSION} </code> \
 clean_outdir
 generate_config
 #compile
-if [ $COMP==0]; then
+if [ $COMP==0 ]; then
 	compile_gcc
 else
 	compile_clang
