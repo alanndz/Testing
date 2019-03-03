@@ -17,6 +17,7 @@ export COMP=0
 
 export KERNELDIR=~/kernel/a*9
 cd ${KERNELDIR}/
+KERNELDIR=$PWD
 export TOOLDIR=$KERNELDIR/../ToolDragon9
 export ARCH=arm64
 export SUBARCH=arm64
@@ -130,7 +131,6 @@ make_zip () {
         # make clean &>/dev/null
         cp ${IMAGE} ${ZIP_DIR}/zImage
         make ZIP="${ZIP_NAME}" normal &>/dev/null
-#        make NAME=$KERNEL_NAME CODE=$KERNEL_VERSION TELE_TOKEN=$BOT_API_KEY TELE_ID=$CHAT_ID sendtele
 }
 
 BUILD_START=$(date +"%s")
