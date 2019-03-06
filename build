@@ -5,7 +5,7 @@
 # modified by alanndz @ github
 export KERNEL_NAME="aLn"
 export KERNEL_VERSION="vA2"
-export CONFIG_FILE="vince_defconfig"
+export CONFIG_FILE="vince-perf_defconfig"
 # Build Release For
 # 0 Official/Final 
 # 1 Test build
@@ -40,8 +40,12 @@ if [ ! -d "${ZIP_DIR}" ]; then
 #  mkdir $ZIP_DIR
   git clone  https://github.com/alanndz/AnyKernel2 -b gcclang ${ZIP_DIR}
 fi
+if [ ! -d "$TOOLDIR/lawas" ]; then
+  git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/lawas
+fi
 
 export ARM64GCC="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
+export ARM64LWS="${TOOLDIR}/lawas/bin/aarch64-linux-android-"
 # export ARM64GCC="$HOME/gcc/bin/aarch64-opt-linux-android-"
 export CLANG_TCHAIN="${TOOLDIR}/Clang/bin/clang"
 export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
@@ -117,6 +121,10 @@ compile_gcc() {
 			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" 
 }
 
+simple_gcc() {
+    make "${JOBS}" O=${OUTDIR} LOCALVERSION="-${KVERSION}" CROSS_COMPILE="ccache ${ARM64GCC}"
+}
+
 make_zip () {
 	cd ${ZIP_DIR}/
 	make clean &>/dev/null
@@ -141,7 +149,8 @@ clean_outdir
 generate_config
 #compile
 if [ $COMP -eq 0 ]; then
-	compile_gcc
+	#compile_gcc
+	simple_gcc
 elif [ $COMP -eq 1 ]; then
 	compile_clang
 fi
