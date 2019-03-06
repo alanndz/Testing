@@ -28,23 +28,22 @@ if [ ! -d "${ZIP_DIR}" ]; then
 #  mkdir $ZIP_DIR
   git clone  https://github.com/alanndz/AnyKernel2 -b gcclang ${ZIP_DIR}
 fi
-
+if [ ! -d "$TOOLDIR/gcc4.9" ]; then
+	git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/gcc4.9
+fi
+if [ ! -d "$TOOLDIR/linaro4.9" ]; then
+	git clone https://github.com/ryan-andri/aarch64-linaro-linux-gnu-4.9 --depth=1 {TOOLDIR}/linaro4.9
+fi
+if [ ! -d "${TOOLDIR}/linaro8" ]; then
+	git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
+fi
 if [ $COMP - eq 0 ]; then
-	if [ ! -d "$TOOLDIR/gcc4.9" ]; then
-		git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/gcc4.9
-	fi
 	CROSS_COMPILE+="ccache "
 	CROSS_COMPILE+="${TOOLDIR}/gcc4.9/bin/aarch64-linux-android-"
 elif [ $COMP -eq 1 ]; then #Linaro 4.9
-	if [ ! -d "$TOOLDIR/linaro4.9" ]; then
-		git clone https://github.com/ryan-andri/aarch64-linaro-linux-gnu-4.9 --depth=1 {TOOLDIR}/linaro4.9
-	fi
 	CROSS_COMPILE+="ccache "
-	CROSS_COMPILE+="${TOOLDIR}/gcc4.9/bin/aarch64-linux-gnu-"
+	CROSS_COMPILE+="${TOOLDIR}/linaro4.9/bin/aarch64-linux-gnu-"
 elif [ $COMP -eq 2 ]; then
-	if [ ! -d "${TOOLDIR}/linaro8" ]; then
-		git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
-	fi
 	CROSS_COMPILE+="ccache "
 	CROSS_COMPILE+="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
 fi
