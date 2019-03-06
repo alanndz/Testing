@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+# by alanndz @ github
+# or Alan SkyDream @ telegram
+export KERNEL_NAME="aLn"
+export KERNEL_VERSION="vB0"
+export CONFIG_FILE="vince-perf_defconfig"
+# Build Release For
+# 0 Official/Final 
+# 1 Test build
+export BREL=1
+# Compiler
+# 0 GCC 4.9
+# 1 Linaro 4.9
+# 2 Linaro 8
+export COMP=1
+
+export KERNELDIR=$PWD/a*9
+cd ${KERNELDIR}/
+KERNELDIR=$PWD
+export TOOLDIR=$KERNELDIR/../ToolDragon9
+export ZIP_DIR="${TOOLDIR}/AnyKernel2"
+export OUTDIR="${KERNELDIR}/../Output"
+export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb"
+
+# Download TOOL
+if [ ! -d "${ZIP_DIR}" ]; then
+#  mkdir $ZIP_DIR
+  git clone  https://github.com/alanndz/AnyKernel2 -b gcclang ${ZIP_DIR}
+fi
+
+if [ $COMP - eq 0 ]; then
+	if [ ! -d "$TOOLDIR/gcc4.9" ]; then
+		git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/gcc4.9
+	fi
+	CROSS_COMPILE+="ccache "
+	CROSS_COMPILE+="${TOOLDIR}/gcc4.9/bin/aarch64-linux-android-"
+elif [ $COMP -eq 1 ]; then #Linaro 4.9
+	if [ ! -d "$TOOLDIR/linaro4.9" ]; then
+		git clone https://github.com/ryan-andri/aarch64-linaro-linux-gnu-4.9 --depth=1 {TOOLDIR}/linaro4.9
+	fi
+	CROSS_COMPILE+="ccache "
+	CROSS_COMPILE+="${TOOLDIR}/gcc4.9/bin/aarch64-linux-gnu-"
+elif [ $COMP -eq 2 ]; then
+	if [ ! -d "${TOOLDIR}/linaro8" ]; then
+		git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
+	fi
+	CROSS_COMPILE+="ccache "
+	CROSS_COMPILE+="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
+fi
+
+# Export
+export ARCH=arm64
+export SUBARCH=arm64
+export PATH=/usr/lib/ccache:$PATH
+export CROSS_COMPILE
+export KBUILD_BUILD_USER="alanndz"
+export KBUILD_BUILD_HOST="n00b"
+
+export BOT_API_KEY=$(openssl enc -base64 -d <<< Nzk5MDU4OTY3OkFBRlpjVEM5SU9lVEt4YkJucHVtWG02VHlUOTFzMzU5Y3VVCg==)
+export CHAT_ID=$(openssl enc -base64 -d <<< LTEwMDEyMzAyMDQ5MjMK)
+
+if [ $BREL -eq 0 ]; then
+	export KVERSION="${KERNEL_VERSION}"
+	export ZIP_NAME="${KERNEL_NAME}-${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
+elif [ $BREL -eq 1 ]; then
+	export KVERSION="${KERNEL_VERSION}-Testing"
+	export ZIP_NAME="${KERNEL_NAME}-${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
+fi
+
+COMP_VERSION=$(${CROSS_COMPILE}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+
+JOBS="-j$(($(nproc --all) + 1))"
+
+function sendInfo() {
+    curl -s -X POST https://api.telegram.org/bot$BOT_API_KEY/sendMessage -d text="${1}" -d chat_id=$CHAT_ID -d "parse_mode=HTML"
+}
+
+function sendZip() {
+	curl -F chat_id="$CHAT_ID" -F document=@"$ZIP_DIR/$ZIP_NAME" https://api.telegram.org/bot$BOT_API_KEY/sendDocument
+}
+
+generate_config() {
+	make O=${OUTDIR} $CONFIG_FILE savedefconfig
+}
+
+clean_outdir() {
+    make O=${OUTDIR} clean
+    make mrproper
+    rm -rf ${OUTDIR}/*
+}
+
+simple_gcc() {
+    make "${JOBS}" O=${OUTDIR} LOCALVERSION="-${KVERSION}"
+}
+
+make_zip () {
+	cd ${ZIP_DIR}/
+	make clean &>/dev/null
+	if [ ! -f ${IMAGE} ]; then
+        	echo -e "Build failed :P";
+        	sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")";
+	        sendInfo "$(echo -e "Kernel compilation failed")";
+        	exit 1;
+        fi
+    	echo "**** Copying zImage ****"
+    	# cd ${ZIP_DIR}/
+        # make clean &>/dev/null
+        cp ${IMAGE} ${ZIP_DIR}/zImage
+        make ZIP="${ZIP_NAME}" normal &>/dev/null
+}
+
+BUILD_START=$(date +"%s")
+DATE=`date`
+
+sendInfo "$(echo -e "-- aLn New Kernel -- \nVersion: <code>${KVERSION} </code> \nKernel Version: <code>$(make kernelversion) </code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${COMP_VERSION} </code> \nStarted at $DATE")"
+clean_outdir
+generate_config
+#compile
+simple_gcc
+
+BUILD_END=$(date +"%s")
+DIFF=$(($BUILD_END - $BUILD_START))
+make_zip
+sendZip
+sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")"
