@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+
+# Source Code from https://gist.github.com/VRanger/dd2da6956fe1acd9d52d8c4d4dfc48e9
+# Credit to VRanger
+# modified by alanndz @ github
+export KERNEL_NAME="aLn"
+export KERNEL_VERSION="vA2"
+export CONFIG_FILE="vince_defconfig"
+# Build Release For
+# 0 Official/Final 
+# 1 Test build
+export BREL=1
+# Compiler
+# 0 GCC 
+# 1 CLANG
+export COMP=1
+
+export KERNELDIR=$PWD/a*9
+cd ${KERNELDIR}/
+KERNELDIR=$PWD
+export TOOLDIR=$KERNELDIR/../ToolDragon9
+export ARCH=arm64
+export SUBARCH=arm64
+export KBUILD_BUILD_USER="alanndz"
+export KBUILD_BUILD_HOST="n00b"
+export ZIP_DIR="${TOOLDIR}/AnyKernel2"
+export OUTDIR="${KERNELDIR}/../Output"
+export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb"
+
+# Download TOOL
+if [ ! -d "${TOOLDIR}/Clang" ]; then
+  # mkdir $TOOL_DIR/Clang
+  git clone https://github.com/nibaji/DragonTC-9.0 --depth=1 ${TOOLDIR}/Clang
+fi
+if [ ! -d "${TOOLDIR}/linaro8" ]; then
+  # mkdir $TOOL_DIR/linaro8
+  git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
+fi
+if [ ! -d "${ZIP_DIR}" ]; then
+#  mkdir $ZIP_DIR
+  git clone  https://github.com/alanndz/AnyKernel2 -b gcclang ${ZIP_DIR}
+fi
+if [ ! -d "$TOOLDIR/lawas" ]; then
+  git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/lawas
+fi
+
+export ARM64GCC="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
+export ARM64LWS="${TOOLDIR}/lawas/bin/aarch64-linux-android-"
+# export ARM64GCC="$HOME/gcc/bin/aarch64-opt-linux-android-"
+export CLANG_TCHAIN="${TOOLDIR}/Clang/bin/clang"
+export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
+export LLVM_DIS="${TOOLDIR}/Clang/bin/llvm-dis"
+KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wno-vectorizer-no-neon -Wno-pointer-sign -Wno-sometimes-uninitialized -Wno-tautological-constant-out-of-range-compare -Wno-literal-conversion -Wno-enum-conversion -Wno-parentheses-equality -Wno-typedef-redefinition -Wno-constant-logical-operand -Wno-array-bounds -Wno-empty-body -Wno-non-literal-null-conversion -Wno-shift-overflow -Wno-logical-not-parentheses -Wno-strlcpy-strlcat-size -Wno-section -Wno-stringop-truncation -mtune=cortex-a53 -march=armv8-a+crc+simd+crypto -mcpu=cortex-a53 -O3"
+
+export BOT_API_KEY=$(openssl enc -base64 -d <<< Nzk5MDU4OTY3OkFBRlpjVEM5SU9lVEt4YkJucHVtWG02VHlUOTFzMzU5Y3VVCg==)
+export CHAT_ID=$(openssl enc -base64 -d <<< LTEwMDEyMzAyMDQ5MjMK)
+
+if [ $BREL -eq 0 ]; then
+	export KVERSION="-${KERNEL_VERSION}"
+	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
+elif [ $BREL -eq 1 ]; then
+	export KVERSION="-${KERNEL_VERSION}-Testing"
+	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
+fi
+if [ $COMP -eq 0 ]; then
+	COMP_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+elif [ $COMP -eq 1 ]; then
+	COMP_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+fi
+
+JOBS="-j$(($(nproc --all) + 1))"
+
+function sendInfo() {
+    curl -s -X POST https://api.telegram.org/bot$BOT_API_KEY/sendMessage -d text="${1}" -d chat_id=$CHAT_ID -d "parse_mode=HTML"
+}
+
+function sendZip() {
+	curl -F chat_id="$CHAT_ID" -F document=@"$ZIP_DIR/$ZIP_NAME" https://api.telegram.org/bot$BOT_API_KEY/sendDocument
+}
+
+generate_config() {
+	make O=${OUTDIR} $CONFIG_FILE
+}
+
+clean_outdir() {
+    make O=${OUTDIR} clean
+    make mrproper
+    rm -rf ${OUTDIR}/*
+}
+
+compile() {
+	LD_LIBRARY_PATH="${CLANG_LD_PATH}:${LD_LIBARY_PATH}"  \ 
+        make "${JOBS}" O="${OUTDIR}" LOCALVERSION="-${KVERSION}"
+		CC="ccache ${CLANG_TCHAIN}" \
+		CROSS_COMPILE="${ARM64GCC}" \
+		HOSTCC="${CLANG_TCHAIN}" \
+		KBUILD_COMPILER_STRING="${COMP_VERSION}" 
+}
+
+compile_clang() {
+	LD_LIBRARY_PATH="$CLANG_LD_PATH:$LD_LIBARY_PATH" \
+	make "${JOBS}" O="${OUTDIR}" ARCH=$ARCH LOCALVERSION="-${KVERSION}" \
+			CROSS_COMPILE="${ARM64GCC}" \
+			CC="ccache ${CLANG_TCHAIN}" \
+			KBUILD_COMPILER_STRING="${COMP_VERSION}" \
+			LLVM_DIS="$LLVM_DIS" \
+			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" \
+			KCFLAGS="-mllvm -polly \
+					-mllvm -polly-run-dce \
+					-mllvm -polly-run-inliner \
+					-mllvm -polly-opt-fusion=max \
+					-mllvm -polly-ast-use-context \
+					-mllvm -polly-vectorizer=stripmine \
+					-mllvm -polly-detect-keep-going"
+}
+
+compile_gcc() {
+    make "${JOBS}" O=${OUTDIR} ARCH=$ARCH LOCALVERSION="-${KVERSION}" \
+			CROSS_COMPILE="${ARM64GCC}" \
+			CC='ccache '${ARM64GCC}gcc \
+			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" 
+}
+
+simple_gcc() {
+    make "${JOBS}" O=${OUTDIR} LOCALVERSION="-${KVERSION}" CROSS_COMPILE="ccache ${ARM64GCC}"
+}
+
+make_zip () {
+	cd ${ZIP_DIR}/
+	make clean &>/dev/null
+	if [ ! -f ${IMAGE} ]; then
+        	echo -e "Build failed :P";
+        	sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")";
+	        sendInfo "$(echo -e "Kernel compilation failed")";
+        	exit 1;
+        fi
+    	echo "**** Copying zImage ****"
+    	# cd ${ZIP_DIR}/
+        # make clean &>/dev/null
+        cp ${IMAGE} ${ZIP_DIR}/zImage
+        make ZIP="${ZIP_NAME}" normal &>/dev/null
+}
+
+BUILD_START=$(date +"%s")
+DATE=`date`
+
+sendInfo "$(echo -e "-- aLn New Kernel -- \nVersion: <code>${KVERSION} </code> \nKernel Version: <code>$(make kernelversion) </code> \nBranch: <code>$(git rev-parse --abbrev-ref HEAD) </code> \nCommit: <code>$(git log --pretty=format:'%h : %s' -1) </code> \nStarted on <code>$(hostname) </code> \nCompiler: <code>${COMP_VERSION} </code> \nStarted at $DATE")"
+clean_outdir
+generate_config
+#compile
+if [ $COMP -eq 0 ]; then
+	#compile_gcc
+	simple_gcc
+elif [ $COMP -eq 1 ]; then
+	compile_clang
+fi
+
+BUILD_END=$(date +"%s")
+DIFF=$(($BUILD_END - $BUILD_START))
+make_zip
+sendZip
+sendInfo "$(echo -e "Total time elapsed: $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.")"
