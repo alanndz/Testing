@@ -1,72 +1,73 @@
 #!/usr/bin/env bash
 
-# Source Code from https://gist.github.com/VRanger/dd2da6956fe1acd9d52d8c4d4dfc48e9
-# Credit to VRanger
-# modified by alanndz @ github
+# by alanndz @ github
+# or Alan SkyDream @ telegram
 export KERNEL_NAME="aLn"
-export KERNEL_VERSION="vA2"
-export CONFIG_FILE="vince-perf_defconfig"
+export KERNEL_VERSION="vB1"
+export CONFIG_FILE="vince_defconfig"
 # Build Release For
 # 0 Official/Final 
 # 1 Test build
 export BREL=1
 # Compiler
-# 0 GCC 
-# 1 CLANG
-export COMP=0
+# 0 GCC 4.9
+# 1 Linaro 4.9
+# 2 Linaro 8
+export COMP=2
 
-export KERNELDIR=~/kernel/a*9
+export KERNELDIR=$PWD/a*9
 cd ${KERNELDIR}/
 KERNELDIR=$PWD
 export TOOLDIR=$KERNELDIR/../ToolDragon9
-export ARCH=arm64
-export SUBARCH=arm64
-export KBUILD_BUILD_USER="alanndz"
-export KBUILD_BUILD_HOST="n00b"
 export ZIP_DIR="${TOOLDIR}/AnyKernel2"
 export OUTDIR="${KERNELDIR}/../Output"
 export IMAGE="${OUTDIR}/arch/arm64/boot/Image.gz-dtb"
 
 # Download TOOL
-if [ ! -d "${TOOLDIR}/Clang" ]; then
-  # mkdir $TOOL_DIR/Clang
-  git clone https://github.com/nibaji/DragonTC-9.0 --depth=1 ${TOOLDIR}/Clang
-fi
-if [ ! -d "${TOOLDIR}/linaro8" ]; then
-  # mkdir $TOOL_DIR/linaro8
-  git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
-fi
 if [ ! -d "${ZIP_DIR}" ]; then
 #  mkdir $ZIP_DIR
   git clone  https://github.com/alanndz/AnyKernel2 -b gcclang ${ZIP_DIR}
 fi
-if [ ! -d "$TOOLDIR/lawas" ]; then
-  git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/lawas
+if [ ! -d "$TOOLDIR/gcc4.9" ]; then
+	git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1 ${TOOLDIR}/gcc4.9
+fi
+if [ ! -d "${TOOLDIR}/linaro4.9" ]; then
+	git clone https://github.com/ryan-andri/aarch64-linaro-linux-gnu-4.9 --depth=1 ${TOOLDIR}/linaro4.9
+fi
+if [ ! -d "${TOOLDIR}/linaro8" ]; then
+	git clone https://github.com/najahiiii/aarch64-linux-gnu -b linaro8-20190216 ${TOOLDIR}/linaro8
+fi
+if [ $COMP -eq 0 ]; then
+	CROSS_COMPILE+="ccache "
+	CROSS_COMPILE+="${TOOLDIR}/gcc4.9/bin/aarch64-linux-android-"
+elif [ $COMP -eq 1 ]; then #Linaro 4.9
+	CROSS_COMPILE+="ccache "
+	CROSS_COMPILE+="${TOOLDIR}/linaro4.9/bin/aarch64-linux-gnu-"
+elif [ $COMP -eq 2 ]; then
+	CROSS_COMPILE+="ccache "
+	CROSS_COMPILE+="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
 fi
 
-export ARM64GCC="${TOOLDIR}/linaro8/bin/aarch64-linux-gnu-"
-export ARM64LWS="${TOOLDIR}/lawas/bin/aarch64-linux-android-"
-# export ARM64GCC="$HOME/gcc/bin/aarch64-opt-linux-android-"
-export CLANG_TCHAIN="${TOOLDIR}/Clang/bin/clang"
-export CLANG_LD_PATH="${TOOLDIR}/Clang/lib64"
-export LLVM_DIS="${TOOLDIR}/Clang/bin/llvm-dis"
-KBUILD_LOUP_CFLAGS="-Wno-unknown-warning-option -Wno-sometimes-uninitialized -Wno-vectorizer-no-neon -Wno-pointer-sign -Wno-sometimes-uninitialized -Wno-tautological-constant-out-of-range-compare -Wno-literal-conversion -Wno-enum-conversion -Wno-parentheses-equality -Wno-typedef-redefinition -Wno-constant-logical-operand -Wno-array-bounds -Wno-empty-body -Wno-non-literal-null-conversion -Wno-shift-overflow -Wno-logical-not-parentheses -Wno-strlcpy-strlcat-size -Wno-section -Wno-stringop-truncation -mtune=cortex-a53 -march=armv8-a+crc+simd+crypto -mcpu=cortex-a53 -O3"
+# Export
+export ARCH=arm64
+export SUBARCH=arm64
+export PATH=/usr/lib/ccache:$PATH
+export CROSS_COMPILE
+export KBUILD_BUILD_USER="alanndz"
+export KBUILD_BUILD_HOST="n00b"
 
 export BOT_API_KEY=$(openssl enc -base64 -d <<< Nzk5MDU4OTY3OkFBRlpjVEM5SU9lVEt4YkJucHVtWG02VHlUOTFzMzU5Y3VVCg==)
 export CHAT_ID=$(openssl enc -base64 -d <<< LTEwMDEyMzAyMDQ5MjMK)
 
 if [ $BREL -eq 0 ]; then
-	export KVERSION="-${KERNEL_VERSION}"
-	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
+	export KVERSION="${KERNEL_VERSION}"
+	export ZIP_NAME="${KERNEL_NAME}-${KVERSION}-$(date "+%H%M-%d%m%Y").zip"
 elif [ $BREL -eq 1 ]; then
-	export KVERSION="-${KERNEL_VERSION}-Testing"
-	export ZIP_NAME="${KERNEL_NAME}${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
+	export KVERSION="${KERNEL_VERSION}-Testing"
+	export ZIP_NAME="${KERNEL_NAME}-${KVERSION}-$(git log --pretty=format:'%h' -1).zip"
 fi
-if [ $COMP -eq 0 ]; then
-	COMP_VERSION=$(${ARM64GCC}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-elif [ $COMP -eq 1 ]; then
-	COMP_VERSION=$(${CLANG_TCHAIN} --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-fi
+
+COMP_VERSION=$(${CROSS_COMPILE}gcc --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 JOBS="-j$(($(nproc --all) + 1))"
 
@@ -79,7 +80,7 @@ function sendZip() {
 }
 
 generate_config() {
-	make O=${OUTDIR} $CONFIG_FILE
+	make O=${OUTDIR} $CONFIG_FILE savedefconfig
 }
 
 clean_outdir() {
@@ -88,41 +89,8 @@ clean_outdir() {
     rm -rf ${OUTDIR}/*
 }
 
-compile() {
-	LD_LIBRARY_PATH="${CLANG_LD_PATH}:${LD_LIBARY_PATH}"  \ 
-        make "${JOBS}" O="${OUTDIR}" LOCALVERSION="-${KVERSION}"
-		CC="ccache ${CLANG_TCHAIN}" \
-		CROSS_COMPILE="${ARM64GCC}" \
-		HOSTCC="${CLANG_TCHAIN}" \
-		KBUILD_COMPILER_STRING="${COMP_VERSION}" 
-}
-
-compile_clang() {
-	LD_LIBRARY_PATH="$CLANG_LD_PATH:$LD_LIBARY_PATH" \
-	make "${JOBS}" O="${OUTDIR}" ARCH=$ARCH LOCALVERSION="-${KVERSION}" \
-			CROSS_COMPILE="${ARM64GCC}" \
-			CC="ccache ${CLANG_TCHAIN}" \
-			KBUILD_COMPILER_STRING="${COMP_VERSION}" \
-			LLVM_DIS="$LLVM_DIS" \
-			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" \
-			KCFLAGS="-mllvm -polly \
-					-mllvm -polly-run-dce \
-					-mllvm -polly-run-inliner \
-					-mllvm -polly-opt-fusion=max \
-					-mllvm -polly-ast-use-context \
-					-mllvm -polly-vectorizer=stripmine \
-					-mllvm -polly-detect-keep-going"
-}
-
-compile_gcc() {
-    make "${JOBS}" O=${OUTDIR} ARCH=$ARCH LOCALVERSION="-${KVERSION}" \
-			CROSS_COMPILE="${ARM64GCC}" \
-			CC='ccache '${ARM64GCC}gcc \
-			KBUILD_LOUP_CFLAGS="$KBUILD_LOUP_CFLAGS" 
-}
-
 simple_gcc() {
-    make "${JOBS}" O=${OUTDIR} LOCALVERSION="-${KVERSION}" CROSS_COMPILE="ccache ${ARM64GCC}"
+    make "${JOBS}" O=${OUTDIR} LOCALVERSION="-${KVERSION}"
 }
 
 make_zip () {
@@ -148,12 +116,7 @@ sendInfo "$(echo -e "-- aLn New Kernel -- \nVersion: <code>${KVERSION} </code> \
 clean_outdir
 generate_config
 #compile
-if [ $COMP -eq 0 ]; then
-	#compile_gcc
-	simple_gcc
-elif [ $COMP -eq 1 ]; then
-	compile_clang
-fi
+simple_gcc
 
 BUILD_END=$(date +"%s")
 DIFF=$(($BUILD_END - $BUILD_START))
